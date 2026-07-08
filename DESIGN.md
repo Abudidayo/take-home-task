@@ -37,7 +37,7 @@ Goals:
 - Surface the governing documents from a ~50k-file Drive at very low cost.
 - Optimise for recall. Missing a contract is the expensive failure.
 - Produce a measured recall estimate, not just a candidate list.
-- Run fully automatically, with no human in the loop.
+- Run fully continiously, with no human in the loop.
 - Keep expensive-model spend bounded and independent of corpus size.
 
 Non-goals:

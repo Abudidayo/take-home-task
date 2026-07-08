@@ -60,7 +60,7 @@ The funnel's LLM work stays fixed at the budget (25 calls) whatever the Drive
 size, so the gap widens with scale, and widens further once embeddings are
 batched or hosted rather than one CPU call at a time.
 
-Reproduce with `python run_demo.py --benchmark` (writes a `.txt` and `.json` to `results/`).
+Reproduce with `python run_demo.py` (writes a `.txt` and `.json` to `results/`).
 
 ## Repository layout
 
@@ -83,37 +83,27 @@ DESIGN.md               problem framing, architecture, trade-offs
 
 ## Run the demo
 
-Python 3.9+, no third-party dependencies. The embedding and LLM stages are
-mocked deterministically, so it runs offline and the same seed gives the same
-corpus every time.
+Python 3.9+, no third-party dependencies. By default, `python run_demo.py` runs
+the benchmark behind the Results table: brute-force LLM over every file vs the
+funnel, on a 200-file Drive. It uses the real local models, so install Ollama and
+pull them first:
 
 ```bash
-python run_demo.py
-python run_demo.py --files 8000 --governing 20 --budget 250 --seed 7
-```
-
-`TRUE recall` uses the synthetic ground-truth labels for evaluation only. The
-pipeline never reads them. The saving ratio grows with corpus size because
-funnel spend is bounded by the budget while the naive baseline scales with the
-file count.
-
-## Optional: Running with qwen 2.5
-
-The mock is the default. To run the same funnel against a real local model:
-
-```bash
-# one-time setup
 winget install Ollama.Ollama        # or https://ollama.com/download
 ollama pull qwen2.5:3b              # ~2 GB
-ollama pull nomic-embed-text       
+ollama pull nomic-embed-text
 
-python run_demo.py --backend ollama --files 500 --governing 8 --budget 40
+python run_demo.py                  # ~8 to 9 min on CPU, with a progress bar
 ```
 
-Only `ollama_llm.py` and `ollama_embeddings.py` differ from the mocks. They keep
-the same `verify(f) -> bool` and `anchor_similarity(text)` interfaces, so the
-funnel is untouched. Real runs show a progress bar (scoring, then verifying) so
-you can watch it work.
+Prefer the fast offline version? Set `RUN_BENCHMARK = False` in the CONFIG block
+at the top of run_demo.py to run the funnel demo on mock models instead
+(deterministic, instant, no setup). Files, governing count, budget, seed and
+model are all set in that same block, or via the matching command-line flags.
+
+The real backend lives in `ollama_llm.py` and `ollama_embeddings.py`, which keep
+the same `verify(f) -> bool` and `anchor_similarity(text)` interfaces as the
+mocks, so the funnel is untouched.
 
 ## Run the tests
 

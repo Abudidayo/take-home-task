@@ -26,7 +26,7 @@ from docfinder.corpus import generate_corpus
 # ==========================================================================
 # CONFIG - edit these instead of typing command-line flags.
 # ==========================================================================
-RUN_BENCHMARK = False      # True = brute-force LLM vs funnel timing; False = funnel demo
+RUN_BENCHMARK = True       # True = brute-force LLM vs funnel timing; False = funnel demo
 BACKEND = "ollama"           # "mock" (offline, instant) or "ollama" (real local model)
 MODEL = "qwen2.5:3b"       # Ollama model tag (used by ollama backend and benchmark)
 SEED = 7                   # same seed = same synthetic Drive
