@@ -1,0 +1,26 @@
+To start I thought the question was very open ended, and was considering
+different factors of the system like:
+
+should it update continuously or run as a one-time event?
+permission to view all the information?
+one shot everything, or a human-in-the-loop element?
+
+I eventually picked a one-time solution for a fully automated scan built for
+recall, since it seemed the simplest to implement.
+
+Instinct told me filtering on metadata would be a lot of the work. However, if it
+wasn't for Claude, I wouldn't have thought of the later stages in the
+architecture like graph rescue and a recall audit. I tried to focus a lot of my
+time on the DESIGN.md, and I eventually had time to test my findings using my
+laptop and Qwen 2.5.
+
+One thing unresolved would be data migration. Since the system relies a lot on
+the Google Drive API for getting the metadata, there could easily be an issue of:
+
+Google Drive files -> exported to a different platform or account -> metadata
+gone -> higher LLM reads
+
+With more time I would have used real or public data for a similar scenario
+rather than generating synthetic ones. Each company has its own terminology and
+way of dealing with things, like different folder names, varying numbers of edits
+in documents, and a different variety of files.

@@ -1,4 +1,4 @@
-# Finding the 80 Documents That Matter
+# System Design Document
 
 A cost-bounded pipeline for surfacing governing documents in a large document store.
 
@@ -47,7 +47,25 @@ Non-goals:
 - Perfect precision. Some false positives are acceptable.
 - A hard completeness guarantee, which is infeasible under the cost ceiling.
 
-## 4. Architecture overview
+## 4. Pre-content signals
+
+Every file exposes signals before its contents are read. The cheap stages rank on
+these:
+
+| Signal | What it suggests |
+|---|---|
+| Name | keywords like Policy, SOP, Contract are a strong prior |
+| Type (MIME) | governing docs are Docs, Word or PDF, never photos or video |
+| Size | policies are neither tiny nor huge |
+| Path / folder | `/Policies`, `/Legal`, `/Compliance` signal intent |
+| Owner / last editor | authored internally, not received from a vendor |
+| Edit frequency | many revisions means a living document, not a one-off |
+| Timestamps | a long created-to-modified span means it is maintained |
+
+A governing document scores high on several of these at once; an invoice or photo
+does not.
+
+## 5. Architecture overview
 
 Volume falls by orders of magnitude, represented in the colors below:
 
@@ -81,41 +99,41 @@ flowchart TD
 
 *Figure 1. Architecture diagram*
 
-## 5. Design rationale
+## 6. Design rationale
 
 The constraint: recall must be high, but the LLM cannot read all 50,000 files.
 So compute is spent in proportion to promise. Cheap signals run on everything;
 the LLM runs only on the few hundred files that survive ranking, keeping spend
-bounded and independent of corpus size (section 7). The cheap stages rank rather
+bounded and independent of corpus size (section 8). The cheap stages rank rather
 than filter, since every hard drop risks a governing document and losses
 compound. The only irreversible cut is the budget boundary.
 
 Completeness cannot be proven cheaply, since that means reading everything. The
-audit (section 6.5) measures it instead, reporting a recall estimate with a
+audit (section 7.5) measures it instead, reporting a recall estimate with a
 confidence interval.
 
 Alternatives considered:
 
 | Approach | Why not chosen |
 |---|---|
-| Brute-force LLM over all 50k | Thousands of pounds and days per Drive. Kept only as the cost baseline (section 7). |
+| Brute-force LLM over all 50k | Thousands of pounds and days per Drive. Kept only as the cost baseline (section 8). |
 | Pure embedding search | Ignores the strongest cheap signals (folder, edit-dynamics, structure), and dense similarity is hard to threshold. Kept as one signal, not the system. |
 | Pure keyword and rules, no LLM | Brittle: misses badly-named docs and novel cases, capping recall. Kept as the cheap early stages. |
-| Supervised classifier upfront | No labelled data at cold start. Deferred to section 8, where LLM verifications become the labels. |
+| Supervised classifier upfront | No labelled data at cold start. Deferred to section 9, where LLM verifications become the labels. |
 | Clustering or topic modelling | Governing docs are defined by function, not topic, so they never form a clean cluster; noise dominates. |
 | Human-in-the-loop triage | Ruled out by the no-human assumption (section 2); the first thing to add if it relaxes. |
 
-## 6. Detailed design
+## 7. Detailed design
 
 This section drills into each stage of the funnel (Figure 1).
 
-### 6.1 Stage 0: media drop
+### 7.1 Stage 0: media drop
 
 One listing pass yields metadata for every file. The only hard drop is on files
 that cannot be governing (`image/*`, `video/*`, `audio/*`), the sole
 recall-unsafe cut in the system.
 
-### 6.2 Stages 1-3: score everything, filter nothing
+### 7.2 Stages 1-3: score everything, filter nothing
 
 Every survivor gets one calibrated `P(governing)` from cheap signals:
 
@@ -129,13 +147,13 @@ Every survivor gets one calibrated `P(governing)` from cheap signals:
   Purpose/Scope/Responsibilities skeleton, effective dates, revision tables and
   numbered sections. Highly discriminating, no ML.
 - Embedding similarity: cosine of filename, first page and folder against a small
-  set of governance anchors. See section 6.3.
+  set of governance anchors. See section 7.3.
 
 Recall leaks multiply (four stages at 99 percent give about 96 percent end to
 end), so these stages never drop, they only rank. The single kill decision
 happens at the budget boundary.
 
-### 6.3 Embedding stage
+### 7.3 Embedding stage
 
 Two implementations behind one `anchor_similarity(text)` interface:
 
@@ -149,7 +167,7 @@ around 0.4: governing docs measure 0.70 to 0.76, noise 0.44 to 0.53, so the real
 embedder rescales that band into [0, 1] to plug into the scorer unchanged. In
 production the band is fit on labelled data and vectors go to an index for reuse.
 
-### 6.4 Graph rescue
+### 7.4 Graph rescue
 
 A governing document with poor metadata (bad name, junk folder, thin text) scores
 near zero on every cheap signal. Its neighbours can still save it, for free:
@@ -174,7 +192,7 @@ from strong neighbours without losing its own. This lifts the hard cases above t
 cutoff at no cost, and is what recovers the deliberately sabotaged `final_v3.docx`
 in the prototype.
 
-### 6.5 Verify and audit
+### 7.5 Verify and audit
 
 The LLM budget, a proxy for tokens, splits two ways:
 
@@ -185,7 +203,7 @@ The LLM budget, a proxy for tokens, splits two ways:
   debias the result to produce a measured recall estimate with a confidence
   interval.
 
-## 7. Cost
+## 8. Cost
 
 Funnel spend is bounded by the budget and independent of corpus size; the naive
 baseline scales linearly.
@@ -201,7 +219,7 @@ The saving multiplies with scale: at 50k files the funnel touches well under 1
 percent of the corpus with the LLM. `test_cost_decouples_from_corpus_size` shows
 funnel cost staying flat as the corpus grows fourfold while the naive cost grows.
 
-## 8. Learning over time
+## 9. Learning over time
 
 Every LLM verification is a label, and the discriminating features are almost
 entirely business-agnostic: a Policies folder and a revision table mean the same
@@ -219,7 +237,7 @@ With no human, training on the LLM's own labels risks drift. Mitigations: train
 only on high-confidence labels, keep a small gold set as an anchor, and monitor
 for distribution shift.
 
-## 9. Prototype and validation
+## 10. Prototype and validation
 
 The `docfinder/` package replicates the problem at small scale.
 
@@ -246,7 +264,7 @@ verification and nomic-embed-text for embeddings, both via Ollama
 (`--backend ollama`). On a CPU-only 16 GB laptop it recovered 8 of 8 governing
 documents at 100 percent recall, confirming the pipeline is not tuned to the mock.
 
-## 10. Future work
+## 11. Future work
 
 - Train the ranker on real business labels, and calibrate probabilities.
   (isotonic or Platt).
@@ -255,3 +273,4 @@ documents at 100 percent recall, confirming the pipeline is not tuned to the moc
 - OCR for scanned PDFs, gated on cheap signals.
 - A labelled benchmark across many real Drives, to turn a claimed recall number
   into a measured one.
+- Use sample business data rather than generating synthetic
