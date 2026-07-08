@@ -1,0 +1,12 @@
+======================================================
+  Timing: brute-force LLM vs the funnel
+  200 files, 6 governing, model qwen2.5:3b (local CPU)
+======================================================
+                           brute-force       funnel
+LLM calls               :          124           25
+LLM tokens              :       27,215        5,769
+embedding calls         :            0          127
+wall-clock time         :       534.8s       374.6s
+governing found         :          6/6          6/6
+------------------------------------------------------
+funnel is 1.4x faster, used 5x fewer LLM calls and 5x fewer LLM tokens
